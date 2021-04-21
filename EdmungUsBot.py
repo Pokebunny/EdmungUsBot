@@ -1,13 +1,18 @@
 import os
 import random
 import time
+from typing import Sequence
 
 from nltk.corpus import wordnet as wn
 from discord.ext import commands
 from dotenv import load_dotenv
+import datetime
 
 load_dotenv()
 TOKEN = os.getenv("EDMUNGBOT_TOKEN")
+
+default_multipoll_emojis = ["🍏", "🤨", "🥶", "🚫"]
+days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 bot = commands.Bot(command_prefix='!')
 
@@ -100,5 +105,30 @@ def create_acronym(six_letter_string):
 
     response = " ".join(response_words)
     return response
+
+@bot.command()
+async def multipoll(context: commands.Context, *args: str):
+    separator = args.index(":")
+
+    options = args[:separator]
+    emojis = args[separator + 1:]
+
+    await send_and_react(context, options, emojis)
+
+@bot.command()
+async def schedule_weekly(context: commands.Context):
+    today = datetime.date.today()
+    week_dates = map(lambda offset : today + datetime.timedelta(days=offset - today.weekday(), weeks=1), range(0, 7))
+    week_strings = [days_of_week[i] + " " + str(date.month) + "/" + str(date.day) for i,date in enumerate(week_dates)]
+
+    await send_and_react(context, week_strings, default_multipoll_emojis)
+
+
+async def send_and_react(context: commands.Context, message_strings: Sequence[str], emojis: Sequence[str]):
+    for message_string in message_strings:
+        message = await context.channel.send(content=message_string)
+
+        for emoji in emojis:
+            await message.add_reaction(emoji)
 
 bot.run(TOKEN)
