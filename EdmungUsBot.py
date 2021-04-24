@@ -1,14 +1,19 @@
 import os
 import random
 import time
+from typing import Sequence
 import pickle as pkl
 
+import discord
 from nltk.corpus import wordnet as wn
 from discord.ext import commands
 from dotenv import load_dotenv
+import datetime
 
 load_dotenv()
 TOKEN = os.getenv("EDMUNGBOT_TOKEN")
+
+default_multipoll_emojis = ["🍏", "🤨", "🥶", "🚫"]
 
 bot = commands.Bot(command_prefix='!')
 
@@ -58,7 +63,7 @@ def load_jokes_objects():
     return nouns, verbs, adjectives, adverbs
 
 @bot.event
-async def on_message(ctx):
+async def on_message(ctx: discord.Message):
     if ctx.author.name == bot.user:
         return
 
@@ -86,6 +91,10 @@ async def on_message(ctx):
         if time.localtime().tm_isdst:
             await ctx.channel.send("IT'S PDT YOU FUCKING MORON")
 
+    # Needed to support other @bot.command methods
+    await bot.process_commands(ctx)
+
+    
 def create_acronym(six_letter_string, nouns, verbs, adjectives, adverbs):
     response_words = []
     wordnum = 1
@@ -112,5 +121,45 @@ def create_acronym(six_letter_string, nouns, verbs, adjectives, adverbs):
 
     response = " ".join(response_words)
     return response
+
+
+@bot.command()
+async def multipoll(context: commands.Context, *args: str):
+    if ":" in args:
+        separator = args.index(":")
+
+        options = args[:separator]
+        emojis = args[separator + 1:]
+
+        await send_and_react(context, options, emojis)
+    else:
+        await send_and_react(context, args, default_multipoll_emojis)
+
+
+@bot.command()
+async def schedule_next_week(context: commands.Context):
+    today = datetime.date.today()
+    await schedule_for_seven_days(context, datetime.timedelta(days=-today.weekday(), weeks=1))
+
+
+@bot.command()
+async def schedule_next_seven_days(context: commands.Context):
+    await schedule_for_seven_days(context, datetime.timedelta(days=1))
+
+
+async def schedule_for_seven_days(context: commands.Context, start_offset: datetime.timedelta):
+    today = datetime.date.today()
+    week_dates = map(lambda offset: today + start_offset + datetime.timedelta(days=offset), range(0, 7))
+    week_strings = list(map(lambda date: date.strftime("%A %m/%d"), week_dates))
+
+    await send_and_react(context, week_strings, default_multipoll_emojis)
+
+
+async def send_and_react(context: commands.Context, message_strings: Sequence[str], emojis: Sequence[str]):
+    for message_string in message_strings:
+        message = await context.channel.send(content=message_string)
+
+        for emoji in emojis:
+            await message.add_reaction(emoji)
 
 bot.run(TOKEN)
