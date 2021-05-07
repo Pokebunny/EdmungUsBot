@@ -1,5 +1,6 @@
 import os
 import random
+import re
 import time
 from typing import Sequence
 import pickle as pkl
@@ -29,6 +30,8 @@ ALL_ADJECTIVES = {"a": [], "b": [], "c": [], "d": [], "e": [], "f": [], "g": [],
 ALL_ADVERBS = {"a": [], "b": [], "c": [], "d": [], "e": [], "f": [], "g": [], "h": [], "i": [], "j": [], "k": [],
            "l": [], "m": [], "n": [], "o": [], "p": [], "q": [], "r": [], "s": [], "t": [], "u": [], "v": [],
            "w": [], "x": [], "y": [], "z": []}
+
+TIMEZONES = [("EST", "EDT"), ("CST", "CDT"), ("MST", "MDT"), ("PST", "PDT")]
 
 for synset in list(wn.all_synsets("n")):
     if synset.name()[0] != ".":
@@ -75,21 +78,13 @@ async def on_message(ctx: discord.Message):
         else:
             await ctx.channel.send(create_acronym(ctx.content, ALL_NOUNS, ALL_VERBS, ALL_ADJECTIVES, ALL_ADVERBS))
 
-    if " EST" in ctx.content.upper():
-        if time.localtime().tm_isdst:
-            await ctx.channel.send("IT'S EDT YOU FUCKING MORON")
+    for timezone in TIMEZONES:
+        is_dst = time.localtime().tm_isdst
+        wrong_timezone = timezone[0] if is_dst else timezone[1]
+        correct_timezone = timezone[1] if is_dst else timezone[0]
 
-    if " CST" in ctx.content.upper():
-        if time.localtime().tm_isdst:
-            await ctx.channel.send("IT'S CDT YOU FUCKING MORON")
-
-    if " MST" in ctx.content.upper():
-        if time.localtime().tm_isdst:
-            await ctx.channel.send("IT'S MDT YOU FUCKING MORON")
-
-    if " PST" in ctx.content.upper():
-        if time.localtime().tm_isdst:
-            await ctx.channel.send("IT'S PDT YOU FUCKING MORON")
+        if re.search("(?:^|\\W)" + wrong_timezone + "(?:$|\\W)", ctx.content, flags=re.IGNORECASE):
+            await ctx.channel.send("IT'S " + correct_timezone + " YOU FUCKING MORON")
 
     # Needed to support other @bot.command methods
     await bot.process_commands(ctx)
